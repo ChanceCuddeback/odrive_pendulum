@@ -1,5 +1,5 @@
 import odrive
-import odrive.enums
+from odrive.enums import *
 from typing import Any, Optional
 
 class Motor:
