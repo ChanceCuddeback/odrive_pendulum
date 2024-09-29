@@ -34,6 +34,20 @@ def set_config(odrv):
     odrv.axis0.config.load_encoder = odrive.enums.EncoderId.ONBOARD_ENCODER0
     odrv.axis0.config.commutation_encoder = odrive.enums.EncoderId.ONBOARD_ENCODER0
     odrv.config.enable_uart_a = False
+    # manual changes for absolute reference frame 
+    odrv.axis0.pos_vel_mapper.config.offset = 0.0
+    odrv.axis0.pos_vel_mapper.config.offset_valid = True
+    odrv.axis0.pos_vel_mapper.config.approx_init_pos = 0.0
+    odrv.axis0.pos_vel_mapper.config.approx_init_pos_valid = True
+    odrv.axis0.controller.config.absolute_setpoints = True
+    # manual changes for anti-cogging
+    odrv.axis0.controller.config.vel_gain = 1.0
+    odrv.axis0.config.anticogging.max_torque = 1.2
+    odrv.axis0.config.anticogging.calib_start_vel = 0.5
+    odrv.axis0.config.anticogging.calib_end_vel = 0.05
+    odrv.axis0.config.anticogging.calib_coarse_integrator_gain = 25
+    odrv.axis0.config.anticogging.enabled = True
+
 
 def save_to_nvm(odrv):
     odrv.save_configuration()
@@ -49,8 +63,8 @@ drv = odrive.find_any()
 set_config(drv)
 save_to_nvm(drv)
 drv.reboot()
-time.sleep(2)
-calibrate(drv)
-save_to_nvm(drv)
-drv.reboot()
-time.sleep(2)
+#time.sleep(2)
+#calibrate(drv)
+#save_to_nvm(drv)
+#drv.reboot()
+#time.sleep(2)
