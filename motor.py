@@ -1,5 +1,5 @@
 import odrive
-from odrive.enums import *
+import odrive.enums
 from typing import Any, Optional
 
 class Motor:
@@ -7,17 +7,27 @@ class Motor:
 
     def start(self) -> None:
         self._my_drive = odrive.find_any()
-        self._my_drive.axis0.requested_state = odrive.enums.AxisState.CLOSED_LOOP_CONTROL
+        self._my_drive.axis0.requested_state = odrive.enums.ControlMode.TORQUE_CONTROL
 
-    def stop_drive(self):
-        if self._null_guard(self):
+    def stop(self) -> None:
+        if self._null_guard():
             return
         self._my_drive.axis0.requested_state = odrive.enums.AxisState.IDLE
 
-    def move_to(self, angle):
-        if self._null_guard(self):
+    def move_to(self, angle) -> None:
+        if self._null_guard():
             return
         self._my_drive.axis0.controller.input_pos = angle
+
+    def set_torque(self, torque) -> None:
+        if self._null_guard():
+            return
+        self._my_drive.axis0.controller.input_torque = torque
+
+    def get_angle(self) -> float:
+        if self._null_guard():
+            return
+        return self._my_drive.axis0.pos_estimate
 
     def _null_guard(self) -> bool:
         return self._my_drive == None

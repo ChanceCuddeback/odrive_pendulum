@@ -5,7 +5,7 @@ import math
 
 import odrive.enums
 
-def get_first_drive():
+def get_drive():
     return odrive.find_any()
     
 def set_config(odrv):
@@ -21,8 +21,7 @@ def set_config(odrv):
     odrv.axis0.config.motor.calibration_current = 10
     odrv.axis0.config.motor.resistance_calib_max_voltage = 2
     odrv.axis0.config.calibration_lockin.current = 10
-    odrv.axis0.motor.motor_thermistor.config.enabled = False
-    odrv.axis0.controller.config.control_mode = odrive.enums.ControlMode.POSITION_CONTROL
+    odrv.axis0.controller.config.control_mode = odrive.enums.ControlMode.TORQUE_CONTROL
     odrv.axis0.controller.config.input_mode = odrive.enums.InputMode.POS_FILTER
     odrv.axis0.controller.config.vel_limit = 50
     odrv.axis0.controller.config.vel_limit_tolerance = 1.1
@@ -50,21 +49,26 @@ def set_config(odrv):
 
 
 def save_to_nvm(odrv):
-    odrv.save_configuration()
-    time.sleep(1)
+    odrv.axis0.requested_state = odrive.enums.AxisState.IDLE
+    try:
+        odrv.save_configuration()
+    finally:
+        time.sleep(1)
+        return get_drive()
 
 def calibrate(odrv):
     odrv.axis0.requested_state = odrive.enums.AxisState.FULL_CALIBRATION_SEQUENCE
     while odrv.axis0.current_state != odrive.enums.AxisState.IDLE:
         time.sleep(0.1)
 
+def app_reboot(odrv):
+    try:
+        odrv.reboot()
+    finally:
+        return get_drive()
 
-drv = odrive.find_any()
-set_config(drv)
-save_to_nvm(drv)
-drv.reboot()
-#time.sleep(2)
-#calibrate(drv)
-#save_to_nvm(drv)
-#drv.reboot()
-#time.sleep(2)
+
+if __name__ == 'main':
+    drv = get_drive()
+    set_config(drv)
+    drv = save_to_nvm(drv)
