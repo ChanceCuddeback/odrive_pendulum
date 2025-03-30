@@ -5,7 +5,7 @@ from typing import Any, Optional
 
 from config import ureg
 
-MAX_TORQUE = 60 * ureg.newton_meter
+MAX_TORQUE = 5 * ureg.newton_meter
 
 # Type to define the input of the set method. Defines kP, kV, pDes, vDes, tDes
 class MotorInput: 
@@ -27,12 +27,19 @@ class Motor:
         self.torque_bounds = torque_bounds
         self.motorInput = MotorInput()
 
-    def start(self) -> None:
+    def start(self, watchdog_timeout = 0.5) -> None:
         self._my_drive = odrive.find_any(timeout=10)
         self._null_throw()
+
+        self._my_drive.axis0.config.enable_watchdog = watchdog_timeout > 0
+        self._my_drive.axis0.config.watchdog_timeout = watchdog_timeout
         self._my_drive.axis0.controller.config.control_mode = odrive.enums.ControlMode.TORQUE_CONTROL
+        self._my_drive.axis0.controller.config.enable_torque_mode_vel_limit = True
+        self._my_drive.axis0.controller.config.vel_limit = 3 # rev / s
         self._my_drive.axis0.controller.config.input_mode = odrive.enums.InputMode.PASSTHROUGH
         self._my_drive.axis0.requested_state = odrive.enums.AxisState.CLOSED_LOOP_CONTROL
+        self._my_drive.axis0.controller.input_torque = 0
+        self.pet()
 
     def get_state(self) -> odrive.enums.AxisState:
         """
@@ -69,6 +76,7 @@ class Motor:
             torque = self.torque_bounds[1].to_base_units().magnitude
 
         self._my_drive.axis0.controller.input_torque = torque
+        self.pet()
         return torque
 
     @ureg.wraps(ureg.radian, (None))
@@ -98,6 +106,16 @@ class Motor:
         self._null_throw()
         # Return the input torque with units of newton-meters
         return self._my_drive.axis0.motor.torque_estimate * ureg.newton_meter
+    
+    def pet(self) -> None:
+        """
+        Feed the watchdog to prevent the motor from going into idle state.
+        """
+        self._null_throw()
+        try:
+            self._my_drive.axis0.watchdog_feed()
+        except Exception as e:
+            print(e)
 
     def _null_throw(self) -> None:
         """
@@ -111,18 +129,18 @@ if __name__ == "__main__":
     # Example usage
     motor = Motor()
     motor.start()
-    input = MotorInput(0.1, 0.01, motor.get_angle().magnitude, 0, 0)
+    input = MotorInput(1, -0.01, motor.get_angle().magnitude, 0, 0)
     motor.set(input)
 
     # Loop until user kills, without blocking on user input
     while True:
         try:
             # Simulate a loop where we can check the motor state
-            time.sleep(0.1)
             current_angle = motor.get_angle()
             current_velocity = motor.get_velocity()
             setpoint = motor.run(input)
-            print(f"Current angle: {current_angle}, Current velocity: {current_velocity}, Desired torque: {setpoint}, Current torque: {motor.get_torque()}")
+            print(f"Desired torque: {setpoint}, Current torque: {motor.get_torque()}")
+            time.sleep(0.01)
         except KeyboardInterrupt:
             # Stop the motor when interrupted
             motor.stop()
