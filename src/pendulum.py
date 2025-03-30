@@ -1,7 +1,7 @@
 from pint import UnitRegistry
 import numpy as np
 
-from src.config import ureg
+from config import ureg
 
 class Pendulum:
     @ureg.wraps(None, (None, ureg.meter, ureg.kilogram, ureg.radian, ureg.angular_velocity, ureg.acceleration, ureg.second))
