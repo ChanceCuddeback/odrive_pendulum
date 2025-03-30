@@ -1,0 +1,7 @@
+pint
+numpy
+matplotlib
+pytest
+odrive
+pyyaml
+lark
