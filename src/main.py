@@ -1,27 +1,31 @@
 from pint import UnitRegistry
 import matplotlib.pyplot as plt
 import numpy as np
-import time
 
 from pendulum import Pendulum
-from motor import Motor
+from motor import Motor, MotorInput
+from config import ureg
+from utils import ewma
+
+#TODO: Profile this for insanely slow portion
 
 if __name__ == '__main__':
 
     # Initialize the motor
     motor = Motor()
     motor.start()
+    m_input = MotorInput()
 
     # Initialize the pendulum
-    ureg = UnitRegistry()
-    l = 100 * ureg.millimeter
-    m = 3.92 * ureg.gram
-    x_0 = 45 * ureg.rad
-    xdot_0 = 0 * ureg.Hz
+    l = 250 * ureg.millimeter
+    m = 6 * ureg.gram
+    x_0 = (np.pi/2) * ureg.rad
+    xdot_0 = 0 * ureg.angular_velocity
+    b = 0.0002 * ureg.damping
     delta_t = 2 * ureg.millisecond
     T = 25 * ureg.second
 
-    pendulum = Pendulum(length=l, mass=m, theta0=x_0, omega0=xdot_0, dt=delta_t)
+    pendulum = Pendulum(length=l, mass=m, theta0=x_0, omega0=xdot_0, damping=b, dt=delta_t)
 
     # Simulation parameters
     num_steps = int((T / delta_t).to_base_units().magnitude)
@@ -32,6 +36,7 @@ if __name__ == '__main__':
     print("Starting simulation...")
     print(f"{'Time (s)':>10} {'Angle (rad)':>12} {'Angular Velocity (rad/s)':>20}")
 
+    old_torque = 0
     for step in range(num_steps):
         # Current time
         current_time = step * delta_t.to_base_units().magnitude
@@ -39,24 +44,20 @@ if __name__ == '__main__':
         # Get the current state of the pendulum
         theta, omega = pendulum.get_state()
 
-        # Apply a control torque (e.g., proportional control to stabilize at 0 rad)
-        desired_angle = 0 * ureg.rad
-        error = (desired_angle - theta).to_base_units().magnitude
-        torque = -0.1 * error * ureg.newton_meter  # Proportional control
-
-        # Set the torque on the motor
-        motor.set_torque(torque.to_base_units().magnitude)
-
         # Step the pendulum simulation
-        pendulum.step(torque)
+        accel = pendulum.step(0 * ureg.newton_meter)
+
+        m_input.tDes = ewma(accel.to_base_units().magnitude, old_torque, 0.001)
+        motor.run(m_input)
+        old_torque = m_input.tDes
 
         # Log the state
         time_values.append(current_time)
-        angle_values.append(theta.to_base_units().magnitude)
-        angular_velocity_values.append(omega.to_base_units().magnitude)
+        angle_values.append(theta)
+        angular_velocity_values.append(omega)
 
         # Print the state
-        print(f"{current_time:10.4f} {theta.to_base_units().magnitude:12.4f} {omega.to_base_units().magnitude:20.4f}")
+        print(f"{current_time:10.4f} {theta:12.4f} {omega:20.4f}")
 
     # Stop the motor
     motor.stop()

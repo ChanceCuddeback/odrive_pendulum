@@ -4,6 +4,7 @@ from pint import UnitRegistry
 from typing import Any, Optional
 
 from config import ureg
+from utils import ewma
 
 MAX_TORQUE = 5 * ureg.newton_meter
 
@@ -31,6 +32,8 @@ class Motor:
         self._my_drive = odrive.find_any(timeout=10)
         self._null_throw()
 
+        #TODO: Setup anti-cogging
+
         self._my_drive.axis0.config.enable_watchdog = watchdog_timeout > 0
         self._my_drive.axis0.config.watchdog_timeout = watchdog_timeout
         self._my_drive.axis0.controller.config.control_mode = odrive.enums.ControlMode.TORQUE_CONTROL
@@ -57,25 +60,30 @@ class Motor:
     def set(self, motorInput) -> None:
         self._null_throw()
         self.motorInput = motorInput
+        self.prior_torque = motorInput.tDes
         
-    def run(self, motorInput) -> None:
+    def run(self, motorInput, alpha=1.0) -> None: 
         """
         Run the motor with the given input.
         :param motorInput: The input to the motor.
         """
+        # TODO: Add windmilling
         self.set(motorInput)
         self._null_throw()
         # Set the torque using the provided input
-        # Convert the torque to base units (newton-meters) and set it
+
         torque = motorInput.kP * (motorInput.pDes - self.get_angle().magnitude) + \
             motorInput.kV * (motorInput.vDes - self.get_velocity().magnitude) + (motorInput.tDes)
-        # Constrain the torque to the specified bounds
+
         if torque < self.torque_bounds[0].to_base_units().magnitude:
             torque = self.torque_bounds[0].to_base_units().magnitude
         elif torque > self.torque_bounds[1].to_base_units().magnitude:
             torque = self.torque_bounds[1].to_base_units().magnitude
 
+        torque = ewma(torque, self.prior_torque, alpha)
         self._my_drive.axis0.controller.input_torque = torque
+        self.prior_torque = torque
+
         self.pet()
         return torque
 

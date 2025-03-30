@@ -18,6 +18,7 @@ ureg.define('radian = [angle] = 1')
 ureg.define('kilogram = [mass] = 1')
 ureg.define('hertz = 1 / second')
 ureg.define('angular_velocity = radian / second')
+ureg.define('damping = newton * second / meter')
 ureg.define('degree = pi / 180 * radian')
 ureg.define('acceleration = meter / second**2')
 
